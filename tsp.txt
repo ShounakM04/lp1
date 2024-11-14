@@ -1,0 +1,133 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+#define N 4  // Number of cities in the TSP problem
+#define INF INT_MAX
+
+// Function to calculate the minimum edge cost for a row
+int minInRow(int cost[N][N], int row) {
+    int minVal = INF;
+    for (int i = 0; i < N; i++) {
+        if (cost[row][i] < minVal) {
+            minVal = cost[row][i];
+        }
+    }
+    return minVal;
+}
+
+// Function to calculate the minimum edge cost for a column
+int minInCol(int cost[N][N], int col) {
+    int minVal = INF;
+    for (int i = 0; i < N; i++) {
+        if (cost[i][col] < minVal) {
+            minVal = cost[i][col];
+        }
+    }
+    return minVal;
+}
+
+// Function to reduce the cost matrix by subtracting row and column minimums
+void reduceMatrix(int cost[N][N]) {
+    // Row reduction
+    for (int i = 0; i < N; i++) {
+        int rowMin = minInRow(cost, i);
+        if (rowMin != INF) {
+            for (int j = 0; j < N; j++) {
+                if (cost[i][j] != INF) {
+                    cost[i][j] -= rowMin;
+                }
+            }
+        }
+    }
+    // Column reduction
+    for (int j = 0; j < N; j++) {
+        int colMin = minInCol(cost, j);
+        if (colMin != INF) {
+            for (int i = 0; i < N; i++) {
+                if (cost[i][j] != INF) {
+                    cost[i][j] -= colMin;
+                }
+            }
+        }
+    }
+}
+
+// Function to calculate the lower bound of the cost for a partial path
+int calculateLowerBound(int cost[N][N], vector<int>& path) {
+    int lb = 0;
+    // Row and Column reduction for lower bound
+    int reducedCost[N][N];
+    memcpy(reducedCost, cost, sizeof(reducedCost));
+
+    reduceMatrix(reducedCost);
+
+    // Add the sum of reduced costs
+    for (int i = 0; i < N; i++) {
+        lb += minInRow(reducedCost, i); // Row reduction part
+    }
+    for (int j = 0; j < N; j++) {
+        lb += minInCol(reducedCost, j); // Column reduction part
+    }
+    return lb;
+}
+
+// Recursive function to implement Branch and Bound TSP with row and column reductions
+void tspBranchAndBound(int cost[N][N], vector<bool>& visited, int currPos, int costSoFar, int& minCost, int level, vector<int>& path, vector<int>& bestPath) {
+    if (level == N) {  // Base case: All cities have been visited
+        int totalCost = costSoFar + cost[currPos][0];  // Complete the cycle by returning to the starting city
+        if (totalCost < minCost) {
+            minCost = totalCost;
+            bestPath = path;  // Store the current path as the best path
+            bestPath.push_back(0);  // Add the starting city to complete the cycle
+        }
+        return;
+    }
+
+    // For each unvisited city, calculate cost and recursively explore further
+    for (int i = 0; i < N; i++) {
+        if (!visited[i] && cost[currPos][i] != INF) {
+            int temp = costSoFar + cost[currPos][i];
+
+            // Calculate the lower bound with row and column reductions
+            int lowerBound = calculateLowerBound(cost, path);
+
+            // If current path cost + lower bound is promising, explore it further
+            if (temp + lowerBound < minCost) {
+                visited[i] = true;
+                path.push_back(i);  // Add city to current path
+
+                tspBranchAndBound(cost, visited, i, temp, minCost, level + 1, path, bestPath);
+
+                visited[i] = false;
+                path.pop_back();  // Backtrack
+            }
+        }
+    }
+}
+
+int main() {
+    // Define the cost matrix (adjacency matrix) for the TSP
+    int cost[N][N] = { {INF, 4, 12, 7},
+                       {5, INF, INF, 18},
+                       {11, INF, INF, 6},
+                       {10, 2, 3, INF} };
+    
+    vector<bool> visited(N, false);
+    visited[0] = true;  // Start from city 0
+    int minCost = INF;
+
+    vector<int> path = {0};  // Path starting from the first city
+    vector<int> bestPath;     // To store the optimal path
+
+    tspBranchAndBound(cost, visited, 0, 0, minCost, 1, path, bestPath);
+
+    // Output the minimum cost and optimal path
+    cout << "The minimum cost of traveling all cities: " << minCost << endl;
+    cout << "Optimal Path: ";
+    for (int city : bestPath) {
+        cout << city << " ";
+    }
+    cout << endl;
+
+    return 0;
+}
